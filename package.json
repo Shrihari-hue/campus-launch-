@@ -1,0 +1,16 @@
+{
+  "name": "campuslaunch",
+  "version": "1.0.0",
+  "description": "CampusLaunch — connecting startup founders with college talent, department by department.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "UNLICENSED"
+}
