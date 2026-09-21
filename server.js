@@ -439,6 +439,21 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// On hosts with ephemeral storage (e.g. a free Render/Railway instance after a
+// restart or redeploy), the database file can come back empty. Rather than
+// requiring a manual "shell in and run npm run seed" step every time, seed
+// automatically on first boot — but only when the database is genuinely
+// empty, so this never touches real data once people have signed up.
+try {
+  const userCount = require('./src/db').prepare('SELECT COUNT(*) as n FROM users').get().n;
+  if (userCount === 0) {
+    console.log('No data found — seeding demo data automatically...');
+    require('./scripts/seed');
+  }
+} catch (err) {
+  console.error('Auto-seed check failed (continuing without seeding):', err.message);
+}
+
 server.listen(PORT, () => {
   console.log('');
   console.log('  ✦ CampusLaunch is running');
