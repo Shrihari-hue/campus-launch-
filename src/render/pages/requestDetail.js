@@ -1,6 +1,6 @@
 'use strict';
 
-const { badge, workTypeLabel, fmtDate, fmtDateTime, escapeHtml } = require('../helpers');
+const { badge, workTypeLabel, fmtDate, fmtDateTime, sectionHead, escapeHtml } = require('../helpers');
 
 function messageBubble(m, currentUserId, requestId) {
   if (m.kind === 'SYSTEM') {
@@ -36,9 +36,12 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
     request.status === 'AGREED'
       ? `
       <div class="card" style="background:var(--success-soft); border-color:#cdeadb;">
-        <div class="flex items-center gap-8" style="margin-bottom:8px;">
-          ${badge('AGREED')}
-          <strong style="color:var(--success);">Terms finalized</strong>
+        <div class="section-head-row" style="margin-bottom:14px;">
+          <div class="section-icon section-icon-success">✅</div>
+          <div>
+            <h4 class="mt-0 mb-0" style="color:var(--success);">Terms finalized</h4>
+            ${badge('AGREED')}
+          </div>
         </div>
         <div class="info-row"><span class="k">Final fee</span><span class="v">${escapeHtml(request.final_fee || '—')}</span></div>
         ${request.final_terms ? `<div class="info-row"><span class="k">Terms</span><span class="v">${escapeHtml(request.final_terms)}</span></div>` : ''}
@@ -49,30 +52,26 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
         ${hasPendingOffer
           ? iMadeTheOffer
             ? `
-              <h4 class="mt-0">Offer sent</h4>
-              <p class="muted" style="font-size:0.85rem;">Waiting for <strong>${escapeHtml(counterpartName)}</strong> to accept — they'll need to confirm before this is final.</p>
+              ${sectionHead('📤', 'Offer sent', `Waiting for ${counterpartName} to accept — they'll need to confirm before this is final.`)}
               <div class="info-row"><span class="k">Proposed fee</span><span class="v">${escapeHtml(request.offer_fee)}</span></div>
               ${request.offer_terms ? `<div class="info-row"><span class="k">Terms</span><span class="v">${escapeHtml(request.offer_terms)}</span></div>` : ''}
             `
             : `
-              <h4 class="mt-0">Offer received</h4>
-              <p class="muted" style="font-size:0.85rem;"><strong>${escapeHtml(counterpartName)}</strong> proposed:</p>
+              ${sectionHead('📥', 'Offer received', `${counterpartName} proposed:`)}
               <div class="info-row"><span class="k">Fee</span><span class="v">${escapeHtml(request.offer_fee)}</span></div>
               ${request.offer_terms ? `<div class="info-row"><span class="k">Terms</span><span class="v">${escapeHtml(request.offer_terms)}</span></div>` : ''}
               <button class="btn btn-primary btn-block" style="margin-top:14px;" data-action="/api/requests/${request.id}/offer/accept" data-method="POST" data-reload data-success-msg="Agreement finalized.">Accept this offer</button>
             `
-          : `
-              <h4 class="mt-0">Propose terms</h4>
-              <p class="muted" style="font-size:0.85rem;">Once you're aligned on scope, propose a fee — <strong>${escapeHtml(counterpartName)}</strong> will need to accept it before it's final.</p>
-            `}
+          : sectionHead('📝', 'Propose terms', `Once you're aligned on scope, propose a fee — ${counterpartName} will need to accept it before it's final.`)}
         <form data-api="/api/requests/${request.id}/offer" data-method="POST" data-reload data-success-msg="Offer sent.">
           <div class="field" style="margin-top:${hasPendingOffer ? '14px' : '0'};">
             <label>${hasPendingOffer ? 'Propose different terms instead' : 'Fee'}</label>
-            <input type="text" name="finalFee" required placeholder="e.g. ₹18,000" />
+            <div class="input-icon"><span class="input-icon-symbol">₹</span><input type="text" name="finalFee" required placeholder="e.g. 18,000" /></div>
           </div>
           <div class="field">
             <label>Terms <span class="muted">(optional)</span></label>
-            <textarea name="finalTerms" placeholder="Timeline, deliverables, payment schedule…"></textarea>
+            <textarea name="finalTerms" maxlength="500" placeholder="Timeline, deliverables, payment schedule…"></textarea>
+            <div class="char-count">0 / 500</div>
           </div>
           <button class="btn ${hasPendingOffer ? 'btn-outline' : 'btn-primary'} btn-block" type="submit">${hasPendingOffer ? 'Send counter-offer' : 'Send offer'}</button>
         </form>
@@ -84,7 +83,7 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
     !isFounder && request.status === 'AGREED'
       ? `
       <div class="card">
-        <h4 class="mt-0">Assign this work to students</h4>
+        ${sectionHead('🎓', 'Assign this work to students')}
         ${students.length === 0
           ? `<p class="muted">You haven't added any students yet. <a href="/college/students">Add students to your roster →</a></p>`
           : `
@@ -127,7 +126,7 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
       : isFounder && request.status === 'AGREED' && assignments.length > 0
       ? `
       <div class="card">
-        <h4 class="mt-0">Work distribution (read-only)</h4>
+        ${sectionHead('📋', 'Work distribution (read-only)')}
         <table>
           <thead><tr><th>Student</th><th>Task</th><th>Status</th></tr></thead>
           <tbody>
@@ -151,7 +150,7 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
     <div class="detail-grid">
       <div class="detail-col-main">
         <div class="card chat-card">
-          <h4 class="mt-0">Negotiation thread</h4>
+          ${sectionHead('💬', 'Negotiation thread', 'Discuss the role, expectations, and finalize the terms together.')}
           <div class="chat-thread">
             ${messages.length ? messages.map((m) => messageBubble(m, user.id, request.id)).join('') : '<p class="muted">No messages yet. Say hello and outline what you need.</p>'}
           </div>
@@ -169,7 +168,7 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
       <div class="list-stack">
         ${agreementPanel}
         <div class="card">
-          <h4 class="mt-0">Opportunity details</h4>
+          ${sectionHead('💼', 'Opportunity details')}
           <p class="muted" style="font-size:0.88rem;">${escapeHtml(request.listing_description)}</p>
           ${request.proposed_fee ? `<div class="info-row"><span class="k">Proposed fee</span><span class="v">${escapeHtml(request.proposed_fee)}</span></div>` : ''}
           <div class="info-row"><span class="k">Requested on</span><span class="v">${fmtDate(request.created_at)}</span></div>

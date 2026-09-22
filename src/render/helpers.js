@@ -42,4 +42,18 @@ function alert(message, type) {
   return `<div class="alert alert-${type || 'info'}">${escapeHtml(message)}</div>`;
 }
 
-module.exports = { badge, workTypeLabel, fmtDate, fmtDateTime, skillChips, alert, escapeHtml };
+// A small icon chip + title (+ optional one-line subtitle), used to give card
+// sections a bit more visual identity than a plain <h4>. `icon` is a single
+// emoji/glyph; `variant` picks the chip's background color (primary/accent/success).
+function sectionHead(icon, title, subtitle, variant) {
+  return `
+    <div class="section-head-row">
+      <div class="section-icon${variant ? ' section-icon-' + variant : ''}">${icon}</div>
+      <div>
+        <h4 class="mt-0 mb-0">${escapeHtml(title)}</h4>
+        ${subtitle ? `<p class="section-subtitle">${escapeHtml(subtitle)}</p>` : ''}
+      </div>
+    </div>`;
+}
+
+module.exports = { badge, workTypeLabel, fmtDate, fmtDateTime, skillChips, alert, sectionHead, escapeHtml };
