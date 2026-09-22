@@ -176,9 +176,23 @@ const Requests = {
   },
   agree(id, { finalFee, finalTerms }) {
     run(
-      `UPDATE requests SET status = 'AGREED', final_fee = ?, final_terms = ?, updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE requests SET status = 'AGREED', final_fee = ?, final_terms = ?,
+         offer_fee = NULL, offer_terms = NULL, offer_by = NULL, updated_at = datetime('now')
+       WHERE id = ?`,
       [finalFee, finalTerms || null, id]
     );
+  },
+  // Propose (or counter-propose) terms. Either party can call this; it always
+  // records who made the offer, so only the OTHER party can accept it —
+  // nobody can unilaterally finalize an agreement.
+  makeOffer(id, { fee, terms, byUserId }) {
+    run(
+      `UPDATE requests SET offer_fee = ?, offer_terms = ?, offer_by = ?, updated_at = datetime('now') WHERE id = ?`,
+      [fee, terms || null, byUserId, id]
+    );
+  },
+  clearOffer(id) {
+    run(`UPDATE requests SET offer_fee = NULL, offer_terms = NULL, offer_by = NULL WHERE id = ?`, [id]);
   },
 };
 

@@ -20,6 +20,12 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
   const canAct = request.status === 'PENDING' || request.status === 'NEGOTIATING';
   const backHref = isFounder ? '/founder/requests' : '/college/requests';
 
+  // Nobody can finalize a deal on their own: whoever proposes terms sets
+  // offer_by, and only the OTHER party sees an "Accept" button. The person
+  // who made the offer only sees a "waiting" state until then.
+  const hasPendingOffer = !!(request.offer_by && request.offer_fee);
+  const iMadeTheOffer = hasPendingOffer && request.offer_by === user.id;
+
   const agreementPanel =
     request.status === 'AGREED'
       ? `
@@ -34,18 +40,35 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
       : canAct
       ? `
       <div class="card">
-        <h4 class="mt-0">Finalize agreement</h4>
-        <p class="muted" style="font-size:0.85rem;">Once both sides are aligned on scope, lock in the final fee and terms.</p>
-        <form data-api="/api/requests/${request.id}/agree" data-method="POST" data-reload data-success-msg="Agreement finalized.">
-          <div class="field">
-            <label>Final fee</label>
+        ${hasPendingOffer
+          ? iMadeTheOffer
+            ? `
+              <h4 class="mt-0">Offer sent</h4>
+              <p class="muted" style="font-size:0.85rem;">Waiting for <strong>${escapeHtml(counterpartName)}</strong> to accept — they'll need to confirm before this is final.</p>
+              <div class="info-row"><span class="k">Proposed fee</span><span class="v">${escapeHtml(request.offer_fee)}</span></div>
+              ${request.offer_terms ? `<div class="info-row"><span class="k">Terms</span><span class="v">${escapeHtml(request.offer_terms)}</span></div>` : ''}
+            `
+            : `
+              <h4 class="mt-0">Offer received</h4>
+              <p class="muted" style="font-size:0.85rem;"><strong>${escapeHtml(counterpartName)}</strong> proposed:</p>
+              <div class="info-row"><span class="k">Fee</span><span class="v">${escapeHtml(request.offer_fee)}</span></div>
+              ${request.offer_terms ? `<div class="info-row"><span class="k">Terms</span><span class="v">${escapeHtml(request.offer_terms)}</span></div>` : ''}
+              <button class="btn btn-primary btn-block" style="margin-top:14px;" data-action="/api/requests/${request.id}/offer/accept" data-method="POST" data-reload data-success-msg="Agreement finalized.">Accept this offer</button>
+            `
+          : `
+              <h4 class="mt-0">Propose terms</h4>
+              <p class="muted" style="font-size:0.85rem;">Once you're aligned on scope, propose a fee — <strong>${escapeHtml(counterpartName)}</strong> will need to accept it before it's final.</p>
+            `}
+        <form data-api="/api/requests/${request.id}/offer" data-method="POST" data-reload data-success-msg="Offer sent.">
+          <div class="field" style="margin-top:${hasPendingOffer ? '14px' : '0'};">
+            <label>${hasPendingOffer ? 'Propose different terms instead' : 'Fee'}</label>
             <input type="text" name="finalFee" required placeholder="e.g. ₹18,000" />
           </div>
           <div class="field">
             <label>Terms <span class="muted">(optional)</span></label>
             <textarea name="finalTerms" placeholder="Timeline, deliverables, payment schedule…"></textarea>
           </div>
-          <button class="btn btn-primary btn-block" type="submit">Mark as agreed</button>
+          <button class="btn ${hasPendingOffer ? 'btn-outline' : 'btn-primary'} btn-block" type="submit">${hasPendingOffer ? 'Send counter-offer' : 'Send offer'}</button>
         </form>
         <button class="btn btn-danger btn-block" style="margin-top:10px;" data-action="/api/requests/${request.id}/decline" data-method="POST" data-confirm="Decline this request?" data-reload>Decline request</button>
       </div>`

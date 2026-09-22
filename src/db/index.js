@@ -10,6 +10,11 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = path.join(DATA_DIR, 'campuslaunch.db');
 const db = new DatabaseSync(DB_PATH);
 
+// DELETE mode (rather than WAL) is used deliberately: WAL relies on shared-memory
+// locking that some network-mounted / synced folders (e.g. a folder synced via
+// iCloud, OneDrive, or a remote-device bridge) don't support, causing "disk I/O
+// error". DELETE mode works everywhere at a small cost to write concurrency,
+// which is irrelevant for an app like this.
 db.exec('PRAGMA journal_mode = DELETE;');
 db.exec('PRAGMA foreign_keys = ON;');
 
@@ -61,6 +66,9 @@ CREATE TABLE IF NOT EXISTS requests (
   proposed_fee TEXT,
   final_fee TEXT,
   final_terms TEXT,
+  offer_fee TEXT,
+  offer_terms TEXT,
+  offer_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(listing_id, college_id)
@@ -101,5 +109,18 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL
 );
 `);
+
+// Migration for databases created before the offer/accept negotiation flow
+// existed. CREATE TABLE IF NOT EXISTS above won't add columns to a table
+// that already exists, so add them here if missing (safe to run every boot).
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+ensureColumn('requests', 'offer_fee', 'TEXT');
+ensureColumn('requests', 'offer_terms', 'TEXT');
+ensureColumn('requests', 'offer_by', 'INTEGER REFERENCES users(id)');
 
 module.exports = db;

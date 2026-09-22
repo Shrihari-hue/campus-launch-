@@ -302,9 +302,15 @@ function loadRequestForUser(user, id) {
   return request;
 }
 
+// Requests still open for back-and-forth (as opposed to already AGREED or
+// DECLINED, which are final states — nothing below should be actionable
+// once a request reaches one of those).
+const OPEN_STATUSES = ['PENDING', 'NEGOTIATING'];
+
 router.post('/api/requests/:id/messages', async (req, res, params) => {
   const user = requireUser(req);
   const request = loadRequestForUser(user, params.id);
+  if (!OPEN_STATUSES.includes(request.status)) throw new HttpError(400, 'This request is no longer open — no further messages can be sent.');
   const body = await parseBody(req);
   if (!body.body || !body.body.trim()) throw new HttpError(400, 'Message cannot be empty.');
   Messages.create({ requestId: request.id, senderId: user.id, body: body.body.trim(), kind: 'MESSAGE' });
@@ -312,16 +318,38 @@ router.post('/api/requests/:id/messages', async (req, res, params) => {
   sendJSON(res, 200, { ok: true });
 });
 
-router.post('/api/requests/:id/agree', async (req, res, params) => {
+// Propose (or counter-propose) final terms. This does NOT finalize anything
+// by itself — it records who proposed it, and only the OTHER party can
+// accept it via /offer/accept below. This is what prevents either side from
+// unilaterally closing a deal the other side never agreed to.
+router.post('/api/requests/:id/offer', async (req, res, params) => {
   const user = requireUser(req);
   const request = loadRequestForUser(user, params.id);
+  if (!OPEN_STATUSES.includes(request.status)) throw new HttpError(400, 'This request is no longer open for offers.');
   const body = await parseBody(req);
-  if (!body.finalFee) throw new HttpError(400, 'Please enter the final fee.');
-  Requests.agree(request.id, { finalFee: body.finalFee, finalTerms: body.finalTerms });
+  if (!body.finalFee) throw new HttpError(400, 'Please enter a fee to propose.');
+  Requests.makeOffer(request.id, { fee: body.finalFee, terms: body.finalTerms, byUserId: user.id });
+  if (request.status === 'PENDING') Requests.updateStatus(request.id, 'NEGOTIATING');
   Messages.create({
     requestId: request.id,
     senderId: user.id,
-    body: `Agreement finalized — ${body.finalFee}${body.finalTerms ? ' · ' + body.finalTerms : ''}`,
+    body: `Proposed: ${body.finalFee}${body.finalTerms ? ' · ' + body.finalTerms : ''}`,
+    kind: 'OFFER',
+  });
+  sendJSON(res, 200, { ok: true });
+});
+
+router.post('/api/requests/:id/offer/accept', async (req, res, params) => {
+  const user = requireUser(req);
+  const request = loadRequestForUser(user, params.id);
+  if (!OPEN_STATUSES.includes(request.status)) throw new HttpError(400, 'This request is no longer open.');
+  if (!request.offer_by || !request.offer_fee) throw new HttpError(400, 'There is no pending offer to accept.');
+  if (request.offer_by === user.id) throw new HttpError(403, 'You proposed this offer — waiting for the other party to accept it.');
+  Requests.agree(request.id, { finalFee: request.offer_fee, finalTerms: request.offer_terms });
+  Messages.create({
+    requestId: request.id,
+    senderId: user.id,
+    body: `Agreement finalized — ${request.offer_fee}${request.offer_terms ? ' · ' + request.offer_terms : ''}`,
     kind: 'SYSTEM',
   });
   sendJSON(res, 200, { ok: true });
@@ -330,7 +358,9 @@ router.post('/api/requests/:id/agree', async (req, res, params) => {
 router.post('/api/requests/:id/decline', async (req, res, params) => {
   const user = requireUser(req);
   const request = loadRequestForUser(user, params.id);
+  if (!OPEN_STATUSES.includes(request.status)) throw new HttpError(400, 'This request is already closed.');
   Requests.updateStatus(request.id, 'DECLINED');
+  Requests.clearOffer(request.id);
   Messages.create({ requestId: request.id, senderId: user.id, body: 'Request declined.', kind: 'SYSTEM' });
   sendJSON(res, 200, { ok: true });
 });
@@ -445,7 +475,7 @@ const server = http.createServer(async (req, res) => {
 // automatically on first boot — but only when the database is genuinely
 // empty, so this never touches real data once people have signed up.
 try {
-  const userCount = require('./src/db').prepare('SELECT COUNT(*) as n FROM users').get().n;
+  const userCount = Users.findById && require('./src/db').prepare('SELECT COUNT(*) as n FROM users').get().n;
   if (userCount === 0) {
     console.log('No data found — seeding demo data automatically...');
     require('./scripts/seed');
