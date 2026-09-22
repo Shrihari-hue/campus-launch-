@@ -121,18 +121,4 @@
     const thread = document.querySelector('.chat-thread');
     if (thread) thread.scrollTop = thread.scrollHeight;
   });
-
-  // Live character counter: any <textarea maxlength> followed by a
-  // <div class="char-count"> in the same .field updates as the user types.
-  document.addEventListener('input', function (e) {
-    const el = e.target;
-    if (el.tagName !== 'TEXTAREA' || !el.hasAttribute('maxlength')) return;
-    const field = el.closest('.field');
-    const counter = field && field.querySelector('.char-count');
-    if (!counter) return;
-    const max = Number(el.getAttribute('maxlength'));
-    const len = el.value.length;
-    counter.textContent = len + ' / ' + max;
-    counter.classList.toggle('char-count-near-limit', len >= max * 0.9);
-  });
 })();
