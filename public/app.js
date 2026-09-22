@@ -40,7 +40,11 @@
     const url = form.getAttribute('action') || form.dataset.api;
     const method = (form.dataset.method || 'POST').toUpperCase();
     const redirect = form.dataset.redirect;
-    const reload = form.dataset.reload;
+    // NOTE: a bare `data-reload` attribute (no ="value") sets dataset.reload
+    // to an empty string, which is falsy — reading it directly here silently
+    // skipped every reload. Use hasAttribute, same as the data-action and
+    // data-status-action handlers below already correctly do.
+    const reload = form.hasAttribute('data-reload');
     const fd = new FormData(form);
     const body = {};
     fd.forEach(function (v, k) { body[k] = v; });

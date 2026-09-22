@@ -215,6 +215,12 @@ const Messages = {
       [requestId]
     );
   },
+  byId(id) {
+    return get(`SELECT * FROM messages WHERE id = ?`, [id]);
+  },
+  deleteById(id) {
+    run(`DELETE FROM messages WHERE id = ?`, [id]);
+  },
 };
 
 // ---------- Students ----------

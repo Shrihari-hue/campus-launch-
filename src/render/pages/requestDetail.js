@@ -2,14 +2,20 @@
 
 const { badge, workTypeLabel, fmtDate, fmtDateTime, escapeHtml } = require('../helpers');
 
-function messageBubble(m, currentUserId) {
+function messageBubble(m, currentUserId, requestId) {
   if (m.kind === 'SYSTEM') {
     return `<div class="msg msg-system">${escapeHtml(m.body)}</div>`;
   }
   const mine = m.sender_id === currentUserId;
+  // Only the sender can delete, and only their own plain chat messages —
+  // OFFER messages stay put since they're part of the negotiation record.
+  const canDelete = mine && m.kind === 'MESSAGE';
   return `
     <div class="msg ${mine ? 'msg-me' : 'msg-them'}">
-      ${m.kind === 'OFFER' ? `<strong>${escapeHtml(m.body)}</strong>` : escapeHtml(m.body)}
+      <div class="msg-body-row">
+        <div class="msg-body">${m.kind === 'OFFER' ? `<strong>${escapeHtml(m.body)}</strong>` : escapeHtml(m.body)}</div>
+        ${canDelete ? `<button type="button" class="msg-delete" title="Delete message" aria-label="Delete message" data-action="/api/requests/${requestId}/messages/${m.id}/delete" data-method="POST" data-confirm="Delete this message?" data-reload>&times;</button>` : ''}
+      </div>
       <div class="msg-meta">${escapeHtml(m.sender_name)} · ${fmtDateTime(m.created_at)}</div>
     </div>`;
 }
@@ -77,7 +83,7 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
   const assignmentSection =
     !isFounder && request.status === 'AGREED'
       ? `
-      <div class="card" style="margin-top:20px;">
+      <div class="card">
         <h4 class="mt-0">Assign this work to students</h4>
         ${students.length === 0
           ? `<p class="muted">You haven't added any students yet. <a href="/college/students">Add students to your roster →</a></p>`
@@ -120,7 +126,7 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
       </div>`
       : isFounder && request.status === 'AGREED' && assignments.length > 0
       ? `
-      <div class="card" style="margin-top:20px;">
+      <div class="card">
         <h4 class="mt-0">Work distribution (read-only)</h4>
         <table>
           <thead><tr><th>Student</th><th>Task</th><th>Status</th></tr></thead>
@@ -143,11 +149,11 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
     </div>
 
     <div class="detail-grid">
-      <div>
-        <div class="card">
+      <div class="detail-col-main">
+        <div class="card chat-card">
           <h4 class="mt-0">Negotiation thread</h4>
           <div class="chat-thread">
-            ${messages.length ? messages.map((m) => messageBubble(m, user.id)).join('') : '<p class="muted">No messages yet. Say hello and outline what you need.</p>'}
+            ${messages.length ? messages.map((m) => messageBubble(m, user.id, request.id)).join('') : '<p class="muted">No messages yet. Say hello and outline what you need.</p>'}
           </div>
           ${canAct ? `
           <hr class="divider" />

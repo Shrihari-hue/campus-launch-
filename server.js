@@ -318,6 +318,22 @@ router.post('/api/requests/:id/messages', async (req, res, params) => {
   sendJSON(res, 200, { ok: true });
 });
 
+// A sender can delete their own plain messages (typos, sent-to-wrong-thread,
+// etc). OFFER and SYSTEM messages are excluded on purpose — they're part of
+// the negotiation record (what was proposed, what was agreed/declined), not
+// idle chat, so deleting them would let someone quietly erase the history
+// behind a live offer or a closed deal.
+router.post('/api/requests/:id/messages/:messageId/delete', async (req, res, params) => {
+  const user = requireUser(req);
+  const request = loadRequestForUser(user, params.id);
+  const message = Messages.byId(params.messageId);
+  if (!message || message.request_id !== request.id) throw new HttpError(404, 'Message not found.');
+  if (message.sender_id !== user.id) throw new HttpError(403, 'You can only delete your own messages.');
+  if (message.kind !== 'MESSAGE') throw new HttpError(400, 'Offer and system messages are part of the record and can\'t be deleted.');
+  Messages.deleteById(message.id);
+  sendJSON(res, 200, { ok: true });
+});
+
 // Propose (or counter-propose) final terms. This does NOT finalize anything
 // by itself — it records who proposed it, and only the OTHER party can
 // accept it via /offer/accept below. This is what prevents either side from
