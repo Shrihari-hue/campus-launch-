@@ -166,16 +166,16 @@ function requestDetailPage({ user, request, messages, assignments, students }) {
             </div>
           </form>` : ''}
         </div>
-        ${assignmentSection}
-      </div>
-      <div class="list-stack">
-        ${agreementPanel}
         <div class="card">
           <h4 class="mt-0">Opportunity details</h4>
           <p class="muted" style="font-size:0.88rem;">${escapeHtml(request.listing_description)}</p>
           ${request.proposed_fee ? `<div class="info-row"><span class="k">Proposed fee</span><span class="v">${escapeHtml(request.proposed_fee)}</span></div>` : ''}
           <div class="info-row"><span class="k">Requested on</span><span class="v">${fmtDate(request.created_at)}</span></div>
         </div>
+        ${assignmentSection}
+      </div>
+      <div class="list-stack list-stack-sticky">
+        ${agreementPanel}
       </div>
     </div>
   </div>

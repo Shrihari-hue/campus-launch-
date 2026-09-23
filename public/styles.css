@@ -377,6 +377,12 @@ input:focus, select:focus, textarea:focus {
 .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 28px; align-items: start; }
 @media (max-width: 880px) { .detail-grid { grid-template-columns: 1fr; } }
 .detail-col-main { display: flex; flex-direction: column; gap: 20px; }
+/* The right column only holds the offer/agreement panel now (chat and
+   opportunity details moved into the main column, where their heights add
+   up naturally instead of leaving a gap). Pinning it means it stays in
+   view — useful, not just filler — while you scroll a longer thread. */
+.list-stack-sticky { position: sticky; top: 92px; }
+@media (max-width: 880px) { .list-stack-sticky { position: static; } }
 
 .info-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 0.9rem; }
 .info-row:last-child { border-bottom: none; }
